@@ -20,17 +20,8 @@
             max-width: 640px;
             border: 2px solid white;
         }
-        #startButton {
+        #startButton, #cameraSelect, #filterSelect {
             padding: 10px 20px;
-            margin: 10px;
-            background-color: white;
-            color: black;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        #filterSelect {
-            padding: 10px;
             margin: 10px;
             background-color: white;
             color: black;
@@ -48,6 +39,10 @@
 </head>
 <body>
     <button id="startButton">Start Camera</button>
+    <select id="cameraSelect">
+        <option value="environment">Back Camera</option>
+        <option value="user">Front Camera</option>
+    </select>
     <select id="filterSelect">
         <option value="none">None</option>
         <option value="negative">Negative</option>
@@ -61,6 +56,7 @@
         const canvas = document.getElementById("canvas");
         const errorDiv = document.getElementById("error");
         const startButton = document.getElementById("startButton");
+        const cameraSelect = document.getElementById("cameraSelect");
         const filterSelect = document.getElementById("filterSelect");
         const ctx = canvas.getContext("2d");
 
@@ -68,7 +64,7 @@
             try {
                 const constraints = {
                     video: {
-                        facingMode: { ideal: "environment" } // Use back camera if available
+                        facingMode: { ideal: cameraSelect.value }
                     }
                 };
                 const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -122,7 +118,14 @@
             startCamera();
             video.addEventListener("play", applyFilter);
         });
+
+        cameraSelect.addEventListener("change", () => {
+            if (video.srcObject) {
+                const tracks = video.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+                startCamera();
+            }
+        });
     </script>
 </body>
 </html>
-
