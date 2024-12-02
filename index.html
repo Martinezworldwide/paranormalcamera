@@ -91,7 +91,16 @@
             if (video.readyState === 4) { // Video is ready
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Apply mirroring for front camera
+                if (cameraSelect.value === "user") {
+                    ctx.save();
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+                    ctx.restore();
+                } else {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                }
 
                 // Get image data and apply selected filter
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
