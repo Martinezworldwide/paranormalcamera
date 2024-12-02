@@ -3,46 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Camera Filter</title>
+    <title>Universal Camera Access</title>
     <style>
         body {
             margin: 0;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
+            justify-content: center;
             height: 100vh;
             background-color: black;
         }
         video, canvas {
-            width: 100%;
+            width: 90%;
             height: auto;
             max-width: 640px;
-            display: block;
+            border: 2px solid white;
+        }
+        #startButton {
+            padding: 10px 20px;
+            margin: 10px;
+            background-color: white;
+            color: black;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
         }
         #error {
             color: white;
             font-family: Arial, sans-serif;
             text-align: center;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
+    <button id="startButton">Start Camera</button>
     <div id="error"></div>
-    <video id="video" autoplay></video>
+    <video id="video" autoplay playsinline></video>
     <canvas id="canvas"></canvas>
     <script>
         const video = document.getElementById("video");
         const canvas = document.getElementById("canvas");
         const errorDiv = document.getElementById("error");
+        const startButton = document.getElementById("startButton");
         const ctx = canvas.getContext("2d");
 
         async function startCamera() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 video.srcObject = stream;
+                startButton.style.display = "none";
             } catch (err) {
                 console.error("Camera access denied:", err);
-                errorDiv.textContent = "Error: Unable to access the camera. Please check your permissions or try a different device.";
+                errorDiv.textContent = "Error: Unable to access the camera. Please check your permissions or device settings.";
             }
         }
 
@@ -68,8 +82,10 @@
             requestAnimationFrame(applyFilter);
         }
 
-        video.addEventListener("play", applyFilter);
-        startCamera();
+        startButton.addEventListener("click", () => {
+            startCamera();
+            video.addEventListener("play", applyFilter);
+        });
     </script>
 </body>
 </html>
