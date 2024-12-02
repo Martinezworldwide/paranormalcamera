@@ -39,7 +39,10 @@
 </head>
 <body>
     <button id="startButton">Start Camera</button>
-    <select id="cameraSelect"></select>
+    <select id="cameraSelect">
+        <option value="environment">Back Camera</option>
+        <option value="user">Front Camera</option>
+    </select>
     <select id="filterSelect">
         <option value="none">None</option>
         <option value="negative">Negative</option>
@@ -78,7 +81,8 @@
             try {
                 const constraints = {
                     video: {
-                        deviceId: { exact: cameraSelect.value }
+                        deviceId: cameraSelect.value ? { exact: cameraSelect.value } : undefined,
+                        facingMode: cameraSelect.value ? undefined : { ideal: cameraSelect.value }
                     }
                 };
                 const stream = await navigator.mediaDevices.getUserMedia(constraints);
