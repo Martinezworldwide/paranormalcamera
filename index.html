@@ -72,7 +72,7 @@
                 startButton.style.display = "none";
             } catch (err) {
                 console.error("Camera access denied:", err);
-                errorDiv.textContent = "Error: Unable to access the camera. Please check your permissions or device settings.";
+                errorDiv.textContent = `Error: Unable to access the camera. ${err.message}`;
             }
         }
 
