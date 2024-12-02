@@ -39,10 +39,7 @@
 </head>
 <body>
     <button id="startButton">Start Camera</button>
-    <select id="cameraSelect">
-        <option value="environment">Back Camera</option>
-        <option value="user">Front Camera</option>
-    </select>
+    <select id="cameraSelect"></select>
     <select id="filterSelect">
         <option value="none">None</option>
         <option value="negative">Negative</option>
@@ -60,11 +57,28 @@
         const filterSelect = document.getElementById("filterSelect");
         const ctx = canvas.getContext("2d");
 
+        async function getCameras() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                cameraSelect.innerHTML = '';
+                videoDevices.forEach(device => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.text = device.label || `Camera ${cameraSelect.length + 1}`;
+                    cameraSelect.appendChild(option);
+                });
+            } catch (err) {
+                console.error("Error enumerating devices:", err);
+                errorDiv.textContent = `Error: Unable to enumerate devices. ${err.message}`;
+            }
+        }
+
         async function startCamera() {
             try {
                 const constraints = {
                     video: {
-                        facingMode: { ideal: cameraSelect.value }
+                        deviceId: { exact: cameraSelect.value }
                     }
                 };
                 const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -126,6 +140,9 @@
                 startCamera();
             }
         });
+
+        // Initialize camera selection
+        getCameras();
     </script>
 </body>
 </html>
