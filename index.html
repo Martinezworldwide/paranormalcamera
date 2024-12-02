@@ -35,6 +35,9 @@
             text-align: center;
             margin-top: 10px;
         }
+        .mirrored {
+            transform: scaleX(-1);
+        }
     </style>
 </head>
 <body>
@@ -70,6 +73,13 @@
                 const stream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = stream;
                 startButton.style.display = "none";
+
+                // Apply mirroring for front camera
+                if (cameraSelect.value === "user") {
+                    video.classList.add("mirrored");
+                } else {
+                    video.classList.remove("mirrored");
+                }
             } catch (err) {
                 console.error("Camera access denied:", err);
                 errorDiv.textContent = `Error: Unable to access the camera. ${err.message}`;
