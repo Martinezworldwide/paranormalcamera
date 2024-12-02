@@ -60,29 +60,11 @@
         const filterSelect = document.getElementById("filterSelect");
         const ctx = canvas.getContext("2d");
 
-        async function getCameras() {
-            try {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                cameraSelect.innerHTML = '';
-                videoDevices.forEach(device => {
-                    const option = document.createElement('option');
-                    option.value = device.deviceId;
-                    option.text = device.label || `Camera ${cameraSelect.length + 1}`;
-                    cameraSelect.appendChild(option);
-                });
-            } catch (err) {
-                console.error("Error enumerating devices:", err);
-                errorDiv.textContent = `Error: Unable to enumerate devices. ${err.message}`;
-            }
-        }
-
         async function startCamera() {
             try {
                 const constraints = {
                     video: {
-                        deviceId: cameraSelect.value ? { exact: cameraSelect.value } : undefined,
-                        facingMode: cameraSelect.value ? undefined : { ideal: cameraSelect.value }
+                        facingMode: { ideal: cameraSelect.value }
                     }
                 };
                 const stream = await navigator.mediaDevices.getUserMedia(constraints);
