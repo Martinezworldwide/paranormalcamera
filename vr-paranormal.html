@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Paranormal VR Experience</title>
+    <title>Paranormal VR Vision</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
         body { margin: 0; }
@@ -23,124 +23,101 @@
 </head>
 <body>
     <div id="instructions">
-        Put on your Meta Quest 3 and click "Enter VR" for full paranormal vision
+        Click "Enter VR" for paranormal vision (no boundary setup needed)
     </div>
     
-    <a-scene vr-mode-ui="enabled: true"
-             webxr="optionalFeatures: dom-overlay,dom-overlay-for-handheld-ar,hit-test,local-floor,bounded-floor,hand-tracking,layers;
-                     requiredFeatures: local-floor,hit-test;
-                     overlayElement: #overlay">
-        
-        <!-- Custom shader for negative vision effect -->
-        <a-assets>
-            <script id="negative-shader" type="x-shader/x-fragment">
-                precision mediump float;
-                varying vec2 vUv;
-                uniform sampler2D map;
-                
-                void main() {
-                    vec4 texel = texture2D(map, vUv);
-                    // Invert colors and add green tint for paranormal effect
-                    vec3 negative = vec3(1.0 - texel.r, 1.0 - texel.g + 0.2, 1.0 - texel.b);
-                    gl_FragColor = vec4(negative, 1.0);
-                }
-            </script>
-        </a-assets>
-
-        <!-- Passthrough setup -->
-        <a-entity id="rig" position="0 1.6 0">
-            <a-camera id="camera" look-controls wasd-controls="enabled: false">
-                <a-entity id="passthrough"
-                          geometry="primitive: plane; width: 4; height: 4;"
-                          position="0 0 -0.01"
-                          material="shader: flat; transparent: true; opacity: 0.9"
-                          visible="false">
-                </a-entity>
-            </a-camera>
+    <a-scene vr-mode-ui="enabled: true">
+        <!-- Environment setup -->
+        <a-entity id="environment">
+            <!-- Create a 360-degree negative vision environment -->
+            <a-sphere id="vision-sphere" 
+                     radius="5000" 
+                     material="shader: flat; side: back; transparent: true; opacity: 0.98"
+                     segments-height="64"
+                     segments-width="64">
+            </a-sphere>
         </a-entity>
 
-        <!-- Environment (will be replaced by passthrough) -->
-        <a-sky color="#000" opacity="0.1"></a-sky>
+        <!-- Camera setup -->
+        <a-entity position="0 1.6 0">
+            <a-camera id="user-camera" look-controls wasd-controls="enabled: false">
+            </a-camera>
+        </a-entity>
     </a-scene>
 
     <script>
-        // WebXR setup for passthrough
-        const scene = document.querySelector('a-scene');
-        const camera = document.querySelector('#camera');
-        
-        if (navigator.xr) {
-            navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
-                if (supported) {
-                    setupPassthrough();
-                }
-            });
-        }
+        // Setup the paranormal vision effect
+        window.addEventListener('load', function() {
+            const scene = document.querySelector('a-scene');
+            const visionSphere = document.querySelector('#vision-sphere');
 
-        function setupPassthrough() {
-            // Set up passthrough when entering VR
-            scene.addEventListener('enter-vr', function () {
-                if (scene.is('vr-mode')) {
-                    // Request camera stream for Quest passthrough
-                    navigator.mediaDevices.getUserMedia({ 
-                        video: {
-                            facingMode: 'environment',
-                            width: { ideal: 1920 },
-                            height: { ideal: 1080 }
-                        } 
-                    }).then(stream => {
-                        const video = document.createElement('video');
-                        video.srcObject = stream;
-                        video.play();
+            // Start camera when entering VR
+            scene.addEventListener('enter-vr', function() {
+                navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                }).then(function(stream) {
+                    // Create video element for camera feed
+                    const video = document.createElement('video');
+                    video.srcObject = stream;
+                    video.autoplay = true;
+                    
+                    // Create canvas for processing
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 1280;
+                    canvas.height = 720;
 
-                        // Create canvas for processing
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        canvas.width = 1920;
-                        canvas.height = 1080;
-
-                        // Process frames with negative effect
-                        function processFrame() {
+                    // Process camera feed with negative effect
+                    function processFrame() {
+                        if (video.readyState === video.HAVE_ENOUGH_DATA) {
                             ctx.drawImage(video, 0, 0);
                             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                             const data = imageData.data;
 
+                            // Apply negative effect
                             for (let i = 0; i < data.length; i += 4) {
-                                // Invert colors
                                 data[i] = 255 - data[i];         // Red
                                 data[i + 1] = 255 - data[i + 1]; // Green
                                 data[i + 2] = 255 - data[i + 2]; // Blue
                                 
-                                // Add paranormal green tint
-                                data[i + 1] = Math.min(255, data[i + 1] + 50);
+                                // Enhance green for paranormal effect
+                                data[i + 1] = Math.min(255, data[i + 1] + 40);
                             }
 
                             ctx.putImageData(imageData, 0, 0);
-                            
-                            // Update passthrough texture
-                            const passthrough = document.querySelector('#passthrough');
-                            passthrough.setAttribute('material', {
-                                src: canvas.toDataURL('image/webp'),
-                                shader: 'flat',
-                                transparent: true,
-                                opacity: 0.95
-                            });
-                            passthrough.setAttribute('visible', true);
 
+                            // Update the sphere texture
+                            visionSphere.setAttribute('material', {
+                                src: canvas.toDataURL('image/webp')
+                            });
+                        }
+                        
+                        if (scene.is('vr-mode')) {
                             requestAnimationFrame(processFrame);
                         }
+                    }
 
-                        processFrame();
-                    }).catch(console.error);
+                    video.addEventListener('play', function() {
+                        requestAnimationFrame(processFrame);
+                    });
+                    
+                    video.play();
+                }).catch(function(err) {
+                    console.error('Camera access error:', err);
+                });
+            });
+
+            // Clean up when exiting VR
+            scene.addEventListener('exit-vr', function() {
+                const tracks = document.querySelector('video')?.srcObject?.getTracks();
+                if (tracks) {
+                    tracks.forEach(track => track.stop());
                 }
             });
-        }
-
-        // Handle VR session end
-        scene.addEventListener('exit-vr', function () {
-            const passthrough = document.querySelector('#passthrough');
-            if (passthrough) {
-                passthrough.setAttribute('visible', false);
-            }
         });
     </script>
 </body>
