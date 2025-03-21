@@ -3,27 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Paranormal Camera</title>
+    <title>Paranormal VR Passthrough</title>
     <style>
         body { 
             margin: 0; 
             overflow: hidden;
         }
-        #video {
+        #vr-button {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            object-fit: cover;
-            transform: scaleX(-1);
-        }
-        #canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 1000;
         }
         #instructions {
             position: fixed;
@@ -40,68 +37,118 @@
     </style>
 </head>
 <body>
-    <div id="instructions">Paranormal Vision Active</div>
-    <video id="video" autoplay playsinline></video>
+    <div id="instructions">Click "Enter VR" for paranormal passthrough vision</div>
+    <button id="vr-button">Enter VR</button>
     <canvas id="canvas"></canvas>
 
     <script>
-        const video = document.getElementById('video');
+        if (!navigator.xr) {
+            document.getElementById('instructions').textContent = 'WebXR not supported';
+            document.getElementById('vr-button').style.display = 'none';
+        }
+
         const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        const gl = canvas.getContext('webgl2', { xrCompatible: true });
+        let xrSession = null;
+        let xrReferenceSpace = null;
 
-        // Set canvas size to match window
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
+        // Vertex shader for passthrough
+        const vsSource = `#version 300 es
+            in vec4 position;
+            void main() {
+                gl_Position = position;
+            }`;
 
-        // Start camera
-        async function startCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: 'environment',
-                        width: { ideal: window.innerWidth },
-                        height: { ideal: window.innerHeight }
-                    } 
-                });
-                video.srcObject = stream;
-                video.play();
-                processFrame();
-            } catch (err) {
-                console.error('Camera error:', err);
-            }
-        }
-
-        // Process video frame with negative effect
-        function processFrame() {
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const data = imageData.data;
-
+        // Fragment shader with negative effect
+        const fsSource = `#version 300 es
+            precision mediump float;
+            uniform sampler2D passthrough;
+            out vec4 outColor;
+            
+            void main() {
+                vec4 color = texture(passthrough, gl_FragCoord.xy / vec2(${window.innerWidth}.0, ${window.innerHeight}.0));
                 // Apply negative effect
-                for (let i = 0; i < data.length; i += 4) {
-                    data[i] = 255 - data[i];         // Red
-                    data[i + 1] = 255 - data[i + 1]; // Green
-                    data[i + 2] = 255 - data[i + 2]; // Blue
+                outColor = vec4(1.0 - color.rgb, color.a);
+            }`;
+
+        // Initialize WebGL program
+        function initShaderProgram(gl, vsSource, fsSource) {
+            const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vertexShader, vsSource);
+            gl.compileShader(vertexShader);
+
+            const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fragmentShader, fsSource);
+            gl.compileShader(fragmentShader);
+
+            const shaderProgram = gl.createProgram();
+            gl.attachShader(shaderProgram, vertexShader);
+            gl.attachShader(shaderProgram, fragmentShader);
+            gl.linkProgram(shaderProgram);
+
+            return shaderProgram;
+        }
+
+        // Initialize WebXR session
+        async function initXR() {
+            try {
+                // Check if passthrough is supported
+                const supported = await navigator.xr.isSessionSupported('immersive-ar');
+                if (!supported) {
+                    throw new Error('Passthrough not supported');
                 }
 
-                ctx.putImageData(imageData, 0, 0);
+                // Request session with passthrough
+                xrSession = await navigator.xr.requestSession('immersive-ar', {
+                    requiredFeatures: ['local-floor', 'plane-detection'],
+                    optionalFeatures: ['dom-overlay'],
+                    domOverlay: { root: document.body }
+                });
+
+                // Set up GL for XR
+                gl.makeXRCompatible();
+
+                // Create reference space
+                xrReferenceSpace = await xrSession.requestReferenceSpace('local-floor');
+
+                // Set up render loop
+                xrSession.requestAnimationFrame(onXRFrame);
+
+                // Initialize shaders
+                const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+                gl.useProgram(shaderProgram);
+
+            } catch (err) {
+                console.error('Error initializing XR:', err);
+                document.getElementById('instructions').textContent = 'Error: ' + err.message;
             }
-            requestAnimationFrame(processFrame);
         }
 
-        // Start when page loads
-        window.addEventListener('load', startCamera);
+        // XR animation frame
+        function onXRFrame(time, frame) {
+            const session = frame.session;
+            session.requestAnimationFrame(onXRFrame);
 
-        // Handle fullscreen
-        document.addEventListener('click', () => {
-            document.documentElement.requestFullscreen().catch(console.error);
-        });
+            const pose = frame.getViewerPose(xrReferenceSpace);
+            if (!pose) return;
+
+            // Apply negative effect to passthrough
+            for (const view of pose.views) {
+                const viewport = session.renderState.baseLayer.getViewport(view);
+                gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+                
+                // Draw with negative shader
+                gl.drawArrays(gl.TRIANGLES, 0, 3);
+            }
+        }
+
+        // Handle VR button
+        document.getElementById('vr-button').addEventListener('click', initXR);
+
+        // Handle session end
+        function onSessionEnd() {
+            xrSession = null;
+        }
     </script>
 </body>
 </html> 
