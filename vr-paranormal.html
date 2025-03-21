@@ -3,10 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Paranormal VR Vision</title>
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <title>Paranormal Camera</title>
     <style>
-        body { margin: 0; }
+        body { 
+            margin: 0; 
+            overflow: hidden;
+        }
+        #video {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
         #instructions {
             position: fixed;
             top: 20px;
@@ -22,102 +40,67 @@
     </style>
 </head>
 <body>
-    <div id="instructions">
-        Click "Enter VR" for paranormal vision (no boundary setup needed)
-    </div>
-    
-    <a-scene vr-mode-ui="enabled: true">
-        <!-- Environment setup -->
-        <a-entity id="environment">
-            <!-- Create a 360-degree negative vision environment -->
-            <a-sphere id="vision-sphere" 
-                     radius="5000" 
-                     material="shader: flat; side: back; transparent: true; opacity: 0.98"
-                     segments-height="64"
-                     segments-width="64">
-            </a-sphere>
-        </a-entity>
-
-        <!-- Camera setup -->
-        <a-entity position="0 1.6 0">
-            <a-camera id="user-camera" look-controls wasd-controls="enabled: false">
-            </a-camera>
-        </a-entity>
-    </a-scene>
+    <div id="instructions">Paranormal Vision Active</div>
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
 
     <script>
-        // Setup the paranormal vision effect
-        window.addEventListener('load', function() {
-            const scene = document.querySelector('a-scene');
-            const visionSphere = document.querySelector('#vision-sphere');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
 
-            // Start camera when entering VR
-            scene.addEventListener('enter-vr', function() {
-                navigator.mediaDevices.getUserMedia({
-                    video: {
+        // Set canvas size to match window
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Start camera
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
                         facingMode: 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    }
-                }).then(function(stream) {
-                    // Create video element for camera feed
-                    const video = document.createElement('video');
-                    video.srcObject = stream;
-                    video.autoplay = true;
-                    
-                    // Create canvas for processing
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = 1280;
-                    canvas.height = 720;
-
-                    // Process camera feed with negative effect
-                    function processFrame() {
-                        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                            ctx.drawImage(video, 0, 0);
-                            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                            const data = imageData.data;
-
-                            // Apply negative effect
-                            for (let i = 0; i < data.length; i += 4) {
-                                data[i] = 255 - data[i];         // Red
-                                data[i + 1] = 255 - data[i + 1]; // Green
-                                data[i + 2] = 255 - data[i + 2]; // Blue
-                                
-                                // Enhance green for paranormal effect
-                                data[i + 1] = Math.min(255, data[i + 1] + 40);
-                            }
-
-                            ctx.putImageData(imageData, 0, 0);
-
-                            // Update the sphere texture
-                            visionSphere.setAttribute('material', {
-                                src: canvas.toDataURL('image/webp')
-                            });
-                        }
-                        
-                        if (scene.is('vr-mode')) {
-                            requestAnimationFrame(processFrame);
-                        }
-                    }
-
-                    video.addEventListener('play', function() {
-                        requestAnimationFrame(processFrame);
-                    });
-                    
-                    video.play();
-                }).catch(function(err) {
-                    console.error('Camera access error:', err);
+                        width: { ideal: window.innerWidth },
+                        height: { ideal: window.innerHeight }
+                    } 
                 });
-            });
+                video.srcObject = stream;
+                video.play();
+                processFrame();
+            } catch (err) {
+                console.error('Camera error:', err);
+            }
+        }
 
-            // Clean up when exiting VR
-            scene.addEventListener('exit-vr', function() {
-                const tracks = document.querySelector('video')?.srcObject?.getTracks();
-                if (tracks) {
-                    tracks.forEach(track => track.stop());
+        // Process video frame with negative effect
+        function processFrame() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+
+                // Apply negative effect
+                for (let i = 0; i < data.length; i += 4) {
+                    data[i] = 255 - data[i];         // Red
+                    data[i + 1] = 255 - data[i + 1]; // Green
+                    data[i + 2] = 255 - data[i + 2]; // Blue
                 }
-            });
+
+                ctx.putImageData(imageData, 0, 0);
+            }
+            requestAnimationFrame(processFrame);
+        }
+
+        // Start when page loads
+        window.addEventListener('load', startCamera);
+
+        // Handle fullscreen
+        document.addEventListener('click', () => {
+            document.documentElement.requestFullscreen().catch(console.error);
         });
     </script>
 </body>
