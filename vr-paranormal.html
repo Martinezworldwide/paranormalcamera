@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paranormal VR Experience</title>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <style>
+        .vr-button {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            background: #ffffff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 1000;
+        }
+        #instructions {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div id="instructions">
+        Put on your Meta Quest 3 and click "Enter VR" to start the paranormal experience
+    </div>
+    <a-scene vr-mode-ui="enabled: true">
+        <a-assets>
+            <!-- We'll use the camera feed as a texture -->
+            <video id="webcam" autoplay playsinline></video>
+        </a-assets>
+
+        <!-- Environment -->
+        <a-sky color="#000"></a-sky>
+        <a-entity position="0 0 0">
+            <!-- Main display screen -->
+            <a-plane id="screen" position="0 1.6 -2" width="3.2" height="1.8" material="shader: flat; side: double;"></a-plane>
+        </a-entity>
+
+        <!-- Camera -->
+        <a-entity position="0 1.6 0">
+            <a-camera look-controls wasd-controls></a-camera>
+        </a-entity>
+    </a-scene>
+
+    <script>
+        // WebXR setup
+        const screen = document.querySelector('#screen');
+        const video = document.querySelector('#webcam');
+        let canvas = document.createElement('canvas');
+        let ctx = canvas.getContext('2d');
+
+        // Request camera access
+        async function setupCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                video.srcObject = stream;
+                video.play();
+
+                // Set canvas size based on video dimensions
+                video.addEventListener('loadedmetadata', () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                });
+
+                // Start the render loop
+                requestAnimationFrame(processFrame);
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+            }
+        }
+
+        // Process each frame with paranormal effect
+        function processFrame() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                // Draw the video frame to canvas
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Get image data for processing
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+
+                // Apply negative paranormal effect
+                for (let i = 0; i < data.length; i += 4) {
+                    // Invert colors
+                    data[i] = 255 - data[i];         // Red
+                    data[i + 1] = 255 - data[i + 1]; // Green
+                    data[i + 2] = 255 - data[i + 2]; // Blue
+                    
+                    // Add slight green tint for paranormal effect
+                    data[i + 1] = Math.min(255, data[i + 1] + 30);
+                }
+
+                // Put processed image back
+                ctx.putImageData(imageData, 0, 0);
+
+                // Update the VR screen texture
+                screen.setAttribute('material', {
+                    src: canvas.toDataURL('image/webp')
+                });
+            }
+
+            // Continue the loop
+            requestAnimationFrame(processFrame);
+        }
+
+        // Initialize when entering VR
+        document.querySelector('a-scene').addEventListener('enter-vr', () => {
+            setupCamera();
+        });
+    </script>
+</body>
+</html> 
